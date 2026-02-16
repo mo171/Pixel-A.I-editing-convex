@@ -12,6 +12,11 @@
 
 # testing
 /coverage
+.env
+.env.local
+.env.example
+env
+venv
 
 # next.js
 /.next/
