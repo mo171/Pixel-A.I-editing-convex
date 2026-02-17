@@ -3,10 +3,10 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "sonner";
 import { FloatingShapes } from "@/components/floating-shapes";
-import { ConvexClientProvider } from "@/convex/ConvexClientProvider";
 import { ClerkProvider } from "@clerk/nextjs";
 import Header from "@/components/header";
 import { shadesOfPurple } from "@clerk/themes";
+import { ConvexClientProvider } from "./ConvexClientProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -27,17 +27,19 @@ export default function RootLayout({ children }) {
           enableSystem
           disableTransitionOnChange
         >
-          <ClerkProvider appearance={{
-            baseTheme: shadesOfPurple,
-          }}>
+          <ClerkProvider
+            appearance={{
+              baseTheme: shadesOfPurple,
+            }}
+          >
             <ConvexClientProvider>
-              {/* <Header /> */}
+              <Header />
               <main className="bg-slate-900 min-h-screen text-white overflow-x-hidden">
                 <Toaster richColors />
                 <FloatingShapes />
                 {children}
-            </main>
-          </ConvexClientProvider>
+              </main>
+            </ConvexClientProvider>
           </ClerkProvider>
         </ThemeProvider>
       </body>
