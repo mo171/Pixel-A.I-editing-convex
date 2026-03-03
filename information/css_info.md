@@ -462,3 +462,72 @@ href="#section-id" // Links to element with id="section-id"
 - [ ] Verify mobile responsiveness
 
 This modern CSS architecture provides a scalable, maintainable, and performance-optimized foundation for building contemporary web applications with excellent user experience patterns.
+
+## Using params jo navigation mein ho
+``` jsx
+import React from "react";
+import { useParams } from "next/navigation";
+
+const Editor = () => {
+  const params = useParams();
+  const projectId = params.projectId;
+  
+};
+
+export default Editor;
+```
+
+## A classic three panel design
+``` jsx
+<div className="flex flex-col h-screen">
+  <EditorTopBar project={project} />           {/* top bar */}
+  <div className="flex flex-1 overflow-hidden">
+    <EditorSidebar project={project} />        {/* left sidebar */}
+    <div className="flex-1 bg-slate-800">
+      <CanvasEditor project={project} activeTool={activeTool} />  {/* canvas */}
+    </div>
+  </div>
+</div>
+```
+
+
+how to manage state change and preserve it
+``` jsx
+  // Save canvas state to undo stack
+  const saveToUndoStack = () => {
+    if (!canvasEditor || isUndoRedoOperation) return;
+
+    const canvasState = JSON.stringify(canvasEditor.toJSON());
+
+    setUndoStack((prev) => {
+      const newStack = [...prev, canvasState];
+      // Limit undo stack to 20 items to prevent memory issues
+      if (newStack.length > 20) {
+        newStack.shift();
+      }
+      return newStack;
+    });
+
+    // Clear redo stack when new action is performed
+    setRedoStack([]);
+  };
+  
+  // Save initial state
+    setTimeout(() => {
+      if (canvasEditor && !isUndoRedoOperation) {
+        const initialState = JSON.stringify(canvasEditor.toJSON());
+        setUndoStack([initialState]);
+      }
+    }, 1000);
+
+    const handleCanvasModified = () => {
+      if (!isUndoRedoOperation) {
+        // Debounce state saving to avoid too many saves
+        setTimeout(() => {
+          if (!isUndoRedoOperation) {
+            saveToUndoStack();
+          }
+        }, 500);
+      }
+    };
+  ```

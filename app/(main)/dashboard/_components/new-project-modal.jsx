@@ -39,8 +39,10 @@ export function NewProjectModal({ isOpen, onClose }) {
 
   // Check if user can create new project
   const currentProjectCount = projects?.length || 0; 
+  console.log("Current project count:", currentProjectCount );
+  
   const canCreate = canCreateProject(currentProjectCount);
-
+  console.log("Can create project:", canCreate);
   // Handle file drop
   const onDrop = useCallback((acceptedFiles) => {
     const file = acceptedFiles[0];

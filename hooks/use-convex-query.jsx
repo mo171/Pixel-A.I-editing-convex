@@ -4,8 +4,9 @@ import { toast } from "sonner";
 
 
 export const useConvexQuery = (query, ...args) => {
-    const result = useQuery(query, ...args);
-
+    const result = useQuery(query, ...args);// query is url and arg is the object to fetch
+    // example:
+    // const { data: project, isLoading, error } = useConvexQuery(api.projects.getProject, projectId);
     const [data, setData] = useState(undefined)
     const [isLoading, setLoading] = useState(true)
     const [error, setError] = useState(null)
@@ -32,7 +33,7 @@ export const useConvexMutation = (mutation) => {
     const mutationFn = useMutation(mutation);
 
     const [data, setData] = useState(undefined)
-    const [isLoading, setLoading] = useState(true)
+    const [isLoading, setLoading] = useState(null)
     const [error, setError] = useState(null)
     
     const mutate = async(...args) => {
@@ -41,8 +42,9 @@ export const useConvexMutation = (mutation) => {
 
         try {
             const result = await mutationFn(...args)
+            // setLoading(false)
             setData(result)
-            setLoading(false)
+           
             return result
         }catch (err) {
             setError(err)

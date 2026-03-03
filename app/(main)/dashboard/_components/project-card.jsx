@@ -11,6 +11,8 @@ export default function ProjectCard({ project, onEdit }) {
   const { mutate: deleteProject, isLoading } = useConvexMutation(
     api.projects.deleteProject
   );
+ 
+  
 
   const lastUpdated = formatDistanceToNow(new Date(project.updatedAt), {
     addSuffix: true,

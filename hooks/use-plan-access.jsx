@@ -3,10 +3,15 @@ import { useAuth } from "@clerk/nextjs";
 
 export function usePlanAccess() {
   const { has } = useAuth();
+  // console.log(has.plan);
+  
 
   const isPro = has?.({ plan: "pro" }) || false;
+  console.log(isPro);
+  
   const isFree = !isPro; // If not pro, then free (default)
-
+  console.log("is free:", isFree);
+  
   // Define which tools are available for each plan
   const planAccess = {
     // Free plan tools
