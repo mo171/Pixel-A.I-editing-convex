@@ -12,8 +12,8 @@ import Image from "next/image";
 import { Button } from "./ui/button";
 
 export default function Header() {
-  const { isLoading } = useStoreUser();
-  const path = usePathname();
+  const { isLoading } = useStoreUser(); // my hook to manage user state and loading
+  const path = usePathname(); // Get current path so that I can use it 
 
   if (path.includes("/editor")) {
     return null; // Hide header on editor page
