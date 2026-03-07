@@ -1,3 +1,31 @@
+
+/**
+ * Dashboard page component for displaying and managing user projects
+ * 
+ * This component serves as the main dashboard for users to view their AI-powered image editing projects.
+ * 
+ * Features:
+ * - Displays a list of user's existing projects via ProjectGrid component
+ * - Provides ability to create new projects through NewProjectModal
+ * - Shows loading state while fetching projects from Convex backend
+ * - Displays empty state with call-to-action when no projects exist
+ * 
+ * How it works:
+ * 1. Fetches user's projects on mount using useConvexQuery hook with getUserProjects API
+ * 2. Manages modal visibility state for creating new projects
+ * 3. Renders conditional UI based on loading and data states:
+ *    - Loading: Shows spinning loader
+ *    - With projects: Displays ProjectGrid component
+ *    - No projects: Shows EmptyState component with prompt to create first project
+ * 4. Modal allows users to initiate new project creation
+ * 
+ * Sub-component:
+ * - EmptyState: A helper component that displays motivational messaging and CTA button
+ *   when user has no projects, encouraging project creation
+ * 
+ * @component
+ * @returns {React.ReactElement} Dashboard page with project list or empty state
+ */
 "use client";
 
 import React, { useState } from "react";
@@ -6,7 +34,7 @@ import { Button } from "@/components/ui/button";
 import { useConvexQuery } from "@/hooks/use-convex-query";
 import { api } from "@/convex/_generated/api";
 import { NewProjectModal } from "./_components/new-project-modal";
-import { ProjectGrid } from "./_components/project-grid.jsx";
+import { ProjectGrid } from "./_components/project-grid";
 
 export default function DashboardPage() {
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);

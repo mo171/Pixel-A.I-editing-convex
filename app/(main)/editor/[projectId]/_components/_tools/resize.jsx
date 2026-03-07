@@ -31,16 +31,16 @@ export function ResizeControls({ project }) {
     isLoading,
   } = useConvexMutation(api.projects.updateProject);
 
+  // ✅ FIXED: Correct useEffect syntax
   useEffect(() => {
     if (!isLoading && data) {
       window.location.reload();
     }
-  }),
-    [data, isLoading];
+  }, [data, isLoading]);
 
   // Calculate dimensions for aspect ratio based on original canvas size
   const calculateAspectRatioDimensions = (ratio) => {
-    if (!project) return { width: project.width, height: project.height };
+    if (!project) return { width: project?.width || 800, height: project?.height || 600 };
 
     const [ratioW, ratioH] = ratio;
     const originalArea = project.width * project.height;
@@ -49,7 +49,7 @@ export function ResizeControls({ project }) {
     const aspectRatio = ratioW / ratioH;
     const newHeight = Math.sqrt(originalArea / aspectRatio);
     const newWidth = newHeight * aspectRatio;
-
+    
     return {
       width: Math.round(newWidth),
       height: Math.round(newHeight),
@@ -88,10 +88,13 @@ export function ResizeControls({ project }) {
     setSelectedPreset(aspectRatio.name);
   };
 
-  // Calculate viewport scale to fit canvas in container
+  // ✅ FIXED: Calculate viewport scale to fit canvas in container
   const calculateViewportScale = () => {
+    if (!canvasEditor) return 1;
+    
     const container = canvasEditor.getElement().parentNode;
     if (!container) return 1;
+    
     const containerWidth = container.clientWidth - 40;
     const containerHeight = container.clientHeight - 40;
     const scaleX = containerWidth / newWidth;
@@ -99,53 +102,80 @@ export function ResizeControls({ project }) {
     return Math.min(scaleX, scaleY, 1);
   };
 
-  // Apply canvas resize
-  const handleApplyResize = async () => {
-    if (
-      !canvasEditor ||
-      !project ||
-      (newWidth === project.width && newHeight === project.height)
-    ) {
-      return;
-    }
+// ✅ SIMPLE: Center-crop the image to fit new canvas size
+const handleApplyResize = async () => {
+  if (
+    !canvasEditor ||
+    !project ||
+    (newWidth === project.width && newHeight === project.height)
+  ) {
+    return;
+  }
 
-    setProcessingMessage("Resizing canvas...");
+  setProcessingMessage("Resizing canvas and fitting image...");
 
-    try {
-      // Resize the canvas
-      canvasEditor.setWidth(newWidth);
-      canvasEditor.setHeight(newHeight);
+  try {
+    // Find and adjust the main image
+    const objects = canvasEditor.getObjects();
+    const mainImage = objects.find(obj => obj.type === 'image');
 
-      // Calculate and apply viewport scale
-      const viewportScale = calculateViewportScale();
+    if (mainImage) {
+      // Calculate scale to fit image in new canvas (cover-style)
+      const scaleX = newWidth / (mainImage.width * mainImage.scaleX);
+      const scaleY = newHeight / (mainImage.height * mainImage.scaleY);
+      const scale = Math.max(scaleX, scaleY); // Use max for cover effect
 
-      canvasEditor.setDimensions(
-        {
-          width: newWidth * viewportScale,
-          height: newHeight * viewportScale,
-        },
-        { backstoreOnly: false }
-      );
-
-      canvasEditor.setZoom(viewportScale);
-      canvasEditor.calcOffset();
-      canvasEditor.requestRenderAll();
-
-      // Update project in database
-      await updateProject({
-        projectId: project._id,
-        width: newWidth,
-        height: newHeight,
-        canvasState: canvasEditor.toJSON(),
+      // Apply scale and center
+      mainImage.set({
+        scaleX: mainImage.scaleX * scale,
+        scaleY: mainImage.scaleY * scale,
+        left: newWidth / 2,
+        top: newHeight / 2,
+        originX: 'center',
+        originY: 'center'
       });
-    } catch (error) {
-      console.error("Error resizing canvas:", error);
-      alert("Failed to resize canvas. Please try again.");
-    } finally {
-      setProcessingMessage(null);
     }
-  };
 
+    // ✅ CORRECT: Set canvas dimensions using proper Fabric.js methods
+    canvasEditor.setDimensions({
+      width: newWidth,
+      height: newHeight
+    });
+
+    // ✅ CORRECT: Set actual canvas size properties
+    canvasEditor.width = newWidth;
+    canvasEditor.height = newHeight;
+
+    // Calculate and apply viewport scale
+    const viewportScale = calculateViewportScale();
+
+    // ✅ CORRECT: Set display dimensions with scale
+    canvasEditor.setDimensions(
+      {
+        width: newWidth * viewportScale,
+        height: newHeight * viewportScale,
+      },
+      { backstoreOnly: false }
+    );
+
+    canvasEditor.setZoom(viewportScale);
+    canvasEditor.calcOffset();
+    canvasEditor.requestRenderAll();
+
+    // Update project in database
+    await updateProject({
+      projectId: project._id,
+      width: newWidth,
+      height: newHeight,
+      canvasState: canvasEditor.toJSON(),
+    });
+  } catch (error) {
+    console.error("Error resizing canvas:", error);
+    alert("Failed to resize canvas. Please try again.");
+  } finally {
+    setProcessingMessage(null);
+  }
+};
   if (!canvasEditor || !project) {
     return (
       <div className="p-4">
@@ -221,15 +251,11 @@ export function ResizeControls({ project }) {
         <h3 className="text-sm font-medium text-white">Aspect Ratios</h3>
         <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto">
           {ASPECT_RATIOS.map((aspectRatio) => {
-            const dimensions = calculateAspectRatioDimensions(
-              aspectRatio.ratio
-            );
+            const dimensions = calculateAspectRatioDimensions(aspectRatio.ratio);
             return (
               <Button
                 key={aspectRatio.name}
-                variant={
-                  selectedPreset === aspectRatio.name ? "default" : "outline"
-                }
+                variant={selectedPreset === aspectRatio.name ? "default" : "outline"}
                 size="sm"
                 onClick={() => applyAspectRatio(aspectRatio)}
                 className={`justify-between h-auto py-2 ${
@@ -241,8 +267,7 @@ export function ResizeControls({ project }) {
                 <div>
                   <div className="font-medium">{aspectRatio.name}</div>
                   <div className="text-xs opacity-70">
-                    {dimensions.width} × {dimensions.height} (
-                    {aspectRatio.label})
+                    {dimensions.width} × {dimensions.height} ({aspectRatio.label})
                   </div>
                 </div>
                 <Monitor className="h-4 w-4" />
@@ -255,13 +280,9 @@ export function ResizeControls({ project }) {
       {/* New Size Preview */}
       {hasChanges && (
         <div className="bg-slate-700/30 rounded-lg p-3">
-          <h4 className="text-sm font-medium text-white mb-2">
-            New Size Preview
-          </h4>
+          <h4 className="text-sm font-medium text-white mb-2">New Size Preview</h4>
           <div className="text-xs text-white/70">
-            <div>
-              New Canvas: {newWidth} × {newHeight} pixels
-            </div>
+            <div>New Canvas: {newWidth} × {newHeight} pixels</div>
             <div className="text-cyan-400">
               {newWidth > project.width || newHeight > project.height
                 ? "Canvas will be expanded"
@@ -288,11 +309,8 @@ export function ResizeControls({ project }) {
       {/* Instructions */}
       <div className="bg-slate-700/30 rounded-lg p-3">
         <p className="text-xs text-white/70">
-          <strong>Resize Canvas:</strong> Changes canvas dimensions.
-          <br />
-          <strong>Aspect Ratios:</strong> Smart sizing based on your current
-          canvas.
-          <br />
+          <strong>Resize Canvas:</strong> Changes canvas dimensions.<br />
+          <strong>Aspect Ratios:</strong> Smart sizing based on your current canvas.<br />
           Objects maintain their size and position.
         </p>
       </div>

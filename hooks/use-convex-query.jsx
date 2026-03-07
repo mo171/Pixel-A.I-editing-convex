@@ -1,3 +1,35 @@
+
+/**
+ * This hook wraps Convex's useQuery hook and provides additional state management.
+ 
+ * **Execution Flow:**
+ * 1. Calls useQuery(query, ...args) immediately to fetch data from Convex backend
+ * 2. Initializes local state: data (undefined), isLoading (true), error (null)
+ * 3. Sets up useEffect that runs whenever the query result changes
+ 
+ * **When result changes (useEffect dependency):**
+ * - If result is undefined: Sets loading to true and clears errors (query pending)
+ * - If result has value: Sets data to result, loading to false, attempts to catch errors
+ * - If error occurs during state update: Catches error and sets error state
+ 
+ * **Cleanup:**
+ * - useEffect automatically cleans up on component unmount (no explicit cleanup needed)
+ * - Dependencies array [result] ensures effect runs only when query result changes
+ * 
+ * **Example Usage:**
+ * ```jsx
+ * const { data: project, isLoading, error } = useConvexQuery(api.projects.getProject, projectId);
+ * ```
+ 
+ * for mutation
+ *  * ```jsx
+ * const { data, isLoading, error, mutate } = useConvexMutation(api.projects.updateProject);
+ * await mutate(projectId, { name: "New Name" });
+ * the first param(projectId) is the argument for the mutation function, and the second param is the object to update
+ * ```
+ 
+ */
+
 import { useMutation, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";

@@ -11,9 +11,15 @@ import {
   RectangleVertical,
   Smartphone,
   Maximize,
+  Brain,
+  Sparkles,
+  User,
+  Focus,
 } from "lucide-react";
 import { useCanvas } from "@/context/context";
 import { FabricImage, Rect } from "fabric";
+import { useConvexMutation } from "@/hooks/use-convex-query";
+import { api } from "@/convex/_generated/api";
 
 const ASPECT_RATIOS = [
   { label: "Freeform", value: null, icon: Maximize },
@@ -28,26 +34,62 @@ const ASPECT_RATIOS = [
   { label: "Story", value: 9 / 16, icon: Smartphone, ratio: "9:16" },
 ];
 
-export function CropContent() {
-  const { canvasEditor, activeTool } = useCanvas();
+const SMART_CROP_PRESETS = [
+  {
+    key: "auto_face",
+    label: "Auto Face",
+    description: "Focus on faces in the image",
+    icon: User,
+    transform: "c-auto",
+    aspectRatio: "ar-1-1",
+  },
+  {
+    key: "auto_object",
+    label: "Smart Object",
+    description: "Focus on main object",
+    icon: Focus,
+    transform: "c-maintain_ratio",
+    aspectRatio: "ar-16-9",
+  },
+  {
+    key: "auto_square",
+    label: "Smart Square",
+    description: "AI crop to perfect square",
+    icon: Square,
+    transform: "c-auto",
+    aspectRatio: "ar-1-1",
+  },
+  {
+    key: "auto_portrait",
+    label: "Smart Portrait",
+    description: "AI crop for portrait format",
+    icon: Smartphone,
+    transform: "c-auto",
+    aspectRatio: "ar-4-5",
+  },
+];
+
+export function CropContent({ project }) {
+  const { canvasEditor, activeTool, setProcessingMessage } = useCanvas();
 
   const [selectedImage, setSelectedImage] = useState(null);
   const [isCropMode, setIsCropMode] = useState(false);
   const [selectedRatio, setSelectedRatio] = useState(null);
   const [cropRect, setCropRect] = useState(null);
   const [originalProps, setOriginalProps] = useState(null);
+  const [selectedSmartCrop, setSelectedSmartCrop] = useState("auto_face");
+  // const { canvasEditor, activeTool, setProcessingMessage } = useCanvas();
+  const { mutate: updateProject } = useConvexMutation(
+    api.projects.updateProject,
+  );
 
-  // Get the currently selected or main image
+  // Get the main image object from canvas (matches background-controls pattern)
   const getActiveImage = () => {
     if (!canvasEditor) return null;
-
-    const activeObject = canvasEditor.getActiveObject();
-    if (activeObject && activeObject.type === "image") {
-      return activeObject;
-    }
-
     const objects = canvasEditor.getObjects();
-    return objects.find((obj) => obj.type === "image") || null;
+    // Get the last added image (most recent, including AI modifications)
+    const images = objects.filter((obj) => obj.type === "image");
+    return images[images.length - 1] || null;
   };
 
   // Remove all Rect objects from canvas (cleanup crop rectangles)
@@ -85,6 +127,81 @@ export function CropContent() {
     };
   }, []);
 
+  // Build smart crop URL with clean transformation (no conflicts)
+  const buildSmartCropUrl = (imageUrl, presetKey) => {
+    const preset = SMART_CROP_PRESETS.find((p) => p.key === presetKey);
+    if (!imageUrl || !preset) return imageUrl;
+
+    // Always use clean base URL to avoid transformation conflicts
+    const [baseUrl] = imageUrl.split("?");
+
+    // Create new transformation string
+    let transformString = `${preset.transform},${preset.aspectRatio}`;
+
+    // Create fresh transformation URL (no conflicts with existing transforms)
+    return `${baseUrl}?tr=${transformString}`;
+  };
+
+  // Apply smart crop using ImageKit transformations
+  const applySmartCrop = async () => {
+    const mainImage = getActiveImage();
+    const selectedPresetData = SMART_CROP_PRESETS.find(
+      (p) => p.key === selectedSmartCrop,
+    );
+
+    if (!mainImage || !selectedPresetData) return;
+
+    setProcessingMessage(`Applying ${selectedPresetData.label} crop...`);
+
+    try {
+      // Get current image URL (same pattern as ai-edit.jsx)
+      const currentImageUrl =
+        mainImage.getSrc?.() || mainImage._element?.src || mainImage.src;
+
+      const smartCropUrl = buildSmartCropUrl(
+        currentImageUrl,
+        selectedSmartCrop,
+      );
+
+      // Load the smart cropped image
+      const croppedImage = await FabricImage.fromURL(smartCropUrl, {
+        crossOrigin: "anonymous",
+      });
+
+      // Preserve current image properties
+      const imageProps = {
+        left: mainImage.left,
+        top: mainImage.top,
+        originX: mainImage.originX,
+        originY: mainImage.originY,
+        angle: mainImage.angle,
+        scaleX: mainImage.scaleX,
+        scaleY: mainImage.scaleY,
+        selectable: true,
+        evented: true,
+      };
+
+      // Replace image on canvas
+      canvasEditor.remove(mainImage);
+      croppedImage.set(imageProps);
+      canvasEditor.add(croppedImage);
+      croppedImage.setCoords();
+      canvasEditor.setActiveObject(croppedImage);
+      canvasEditor.requestRenderAll();
+
+      // Update project in database
+      await updateProject({
+        projectId: project._id,
+        currentImageUrl: smartCropUrl,
+        canvasState: canvasEditor.toJSON(),
+      });
+    } catch (error) {
+      console.error("Error applying smart crop:", error);
+      alert("Failed to apply smart crop. Please try again.");
+    } finally {
+      setProcessingMessage(null);
+    }
+  };
   // Initialize crop mode
   const initializeCropMode = (image) => {
     if (!image || isCropMode) return;
@@ -244,7 +361,7 @@ export function CropContent() {
       const cropWidth = Math.min(cropBounds.width, imageBounds.width - cropX);
       const cropHeight = Math.min(
         cropBounds.height,
-        imageBounds.height - cropY
+        imageBounds.height - cropY,
       );
 
       // Convert to image coordinate system (accounting for image scaling)
@@ -336,6 +453,86 @@ export function CropContent() {
         </Button>
       )}
 
+      {/* AI Smart Crop Section - Show when not in manual crop mode */}
+      {!isCropMode && activeImage && (
+        <div className="space-y-4">
+          <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Brain className="h-5 w-5 text-purple-400" />
+              <h3 className="text-sm font-medium text-white">AI Smart Crop</h3>
+              <span className="px-2 py-1 bg-purple-500 text-white text-xs rounded-full">
+                NEW
+              </span>
+            </div>
+            <p className="text-purple-300/80 text-xs mb-4">
+              Let AI automatically detect and crop the important parts of your
+              image
+            </p>
+
+            {/* Smart Crop Presets */}
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              {SMART_CROP_PRESETS.map((preset) => {
+                const IconComponent = preset.icon;
+                const isSelected = selectedSmartCrop === preset.key;
+
+                return (
+                  <button
+                    key={preset.key}
+                    onClick={() => setSelectedSmartCrop(preset.key)}
+                    className={`p-3 rounded-lg border text-left transition-all ${
+                      isSelected
+                        ? "border-purple-400 bg-purple-400/10"
+                        : "border-white/20 bg-slate-700/30 hover:border-white/40"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <IconComponent className="h-4 w-4 text-purple-400" />
+                      <span className="text-white text-xs font-medium">
+                        {preset.label}
+                      </span>
+                    </div>
+                    <p className="text-white/70 text-xs">
+                      {preset.description}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Apply Smart Crop Button */}
+            <Button
+              onClick={applySmartCrop}
+              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+              variant="primary"
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              Apply AI Smart Crop
+            </Button>
+          </div>
+
+          {/* Divider */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-white/20"></div>
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="bg-slate-900 px-3 text-white/70">OR</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Crop Button */}
+      {!isCropMode && activeImage && (
+        <Button
+          onClick={() => initializeCropMode(activeImage)}
+          className="w-full"
+          variant="outline"
+        >
+          <Crop className="h-4 w-4 mr-2" />
+          Manual Crop
+        </Button>
+      )}
       {/* Aspect Ratio Selection - Only show in crop mode */}
       {isCropMode && (
         <div>

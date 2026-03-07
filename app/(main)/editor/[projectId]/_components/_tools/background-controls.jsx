@@ -12,6 +12,7 @@ import {
   Download,
   Loader2,
   Check,
+  Sparkles,
 } from "lucide-react";
 import { HexColorPicker } from "react-colorful";
 import { useCanvas } from "@/context/context";
@@ -28,12 +29,16 @@ export function BackgroundControls({ project }) {
   const [unsplashImages, setUnsplashImages] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedImageId, setSelectedImageId] = useState(null);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [isApplyingAI, setIsApplyingAI] = useState(false);
 
-  // Get the main image object from canvas
+  // Get the main image object from canvas (consistent with other tools)
   const getMainImage = () => {
     if (!canvasEditor) return null;
     const objects = canvasEditor.getObjects();
-    return objects.find((obj) => obj.type === "image") || null;
+    // Get the last added image (most recent, including AI modifications)
+    const images = objects.filter((obj) => obj.type === "image");
+    return images[images.length - 1] || null;
   };
 
   // Background removal using ImageKit
@@ -46,9 +51,9 @@ export function BackgroundControls({ project }) {
     try {
       // Get the current image URL
       const currentImageUrl =
-        project.currentImageUrl || project.originalImageUrl;
+        mainImage.getSrc?.() || mainImage._element?.src || mainImage.src;
 
-      // Create ImageKit transformation URL for background removal
+      // Create ImageKit transformation URL for background removal (clean base URL)
       const bgRemovedUrl = currentImageUrl.includes("ik.imagekit.io")
         ? `${currentImageUrl.split("?")[0]}?tr=e-bgremove`
         : currentImageUrl;
@@ -87,6 +92,73 @@ export function BackgroundControls({ project }) {
       console.error("Error removing background:", error);
       alert("Failed to remove background. Please try again.");
     } finally {
+      setProcessingMessage(null);
+    }
+  };
+
+  // AI Background Replacement using ImageKit
+  const handleAIBackgroundReplacement = async () => {
+    const mainImage = getMainImage();
+    if (!mainImage || !project || !aiPrompt.trim()) return;
+
+    setIsApplyingAI(true);
+    setProcessingMessage("Generating AI background...");
+
+    try {
+      // Get the current image URL
+      const currentImageUrl =
+        mainImage.getSrc?.() || mainImage._element?.src || mainImage.src;
+
+      // Create enhanced prompt with natural-looking additions
+      const enhancedPrompt = `${aiPrompt.trim()}, photorealistic, natural lighting, high quality, detailed`;
+      const encodedPrompt = encodeURIComponent(enhancedPrompt);
+      
+      let aiReplacedUrl;
+      if (currentImageUrl.includes("ik.imagekit.io")) {
+        const [baseUrl] = currentImageUrl.split("?");
+        aiReplacedUrl = `${baseUrl}?tr=e-changebg-prompt-${encodedPrompt}`;
+      } else {
+        aiReplacedUrl = currentImageUrl; // Fallback if not ImageKit URL
+      }
+
+      console.log("Original URL:", currentImageUrl);
+      console.log("Enhanced Prompt:", enhancedPrompt);
+      console.log("AI Background URL:", aiReplacedUrl);
+
+      // Create new image with AI-generated background
+      const processedImage = await FabricImage.fromURL(aiReplacedUrl, {
+        crossOrigin: "anonymous",
+      });
+
+      // Store the current properties before removing the old image
+      const currentProps = {
+        left: mainImage.left,
+        top: mainImage.top,
+        scaleX: mainImage.scaleX,
+        scaleY: mainImage.scaleY,
+        angle: mainImage.angle,
+        originX: mainImage.originX,
+        originY: mainImage.originY,
+        selectable: true,
+        evented: true,
+      };
+
+      // Replace image on canvas
+      canvasEditor.remove(mainImage);
+      processedImage.set(currentProps);
+      canvasEditor.add(processedImage);
+      processedImage.setCoords();
+      canvasEditor.setActiveObject(processedImage);
+      canvasEditor.calcOffset();
+      canvasEditor.requestRenderAll();
+
+      console.log("AI background replacement successful");
+      
+    } catch (error) {
+      console.error("Error applying AI background replacement:", error);
+      alert("Failed to generate AI background. Please try again.");
+    } finally {
+      setIsApplyingAI(false);
       setProcessingMessage(null);
     }
   };
@@ -225,7 +297,7 @@ export function BackgroundControls({ project }) {
 
         <Button
           onClick={handleBackgroundRemoval}
-          disabled={processingMessage || !getMainImage()}
+          disabled={processingMessage || isApplyingAI || !getMainImage()}
           className="w-full"
           variant="primary"
         >
@@ -242,20 +314,27 @@ export function BackgroundControls({ project }) {
 
       {/* Shadcn UI Tabs */}
       <Tabs defaultValue="color" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 bg-slate-700/50">
+        <TabsList className="grid w-full grid-cols-3 bg-slate-700/50">
           <TabsTrigger
             value="color"
-            className="data-[state=active]:bg-cyan-500 data-[state=active]:text-white"
+            className="data-[state=active]:bg-cyan-500 data-[state=active]:text-white text-xs"
           >
-            <Palette className="h-4 w-4 mr-2" />
+            <Palette className="h-4 w-4 mr-1" />
             Color
           </TabsTrigger>
           <TabsTrigger
             value="image"
-            className="data-[state=active]:bg-cyan-500 data-[state=active]:text-white"
+            className="data-[state=active]:bg-cyan-500 data-[state=active]:text-white text-xs"
           >
-            <ImageIcon className="h-4 w-4 mr-2" />
+            <ImageIcon className="h-4 w-4 mr-1" />
             Image
+          </TabsTrigger>
+          <TabsTrigger
+            value="ai-replace"
+            className="data-[state=active]:bg-cyan-500 data-[state=active]:text-white text-xs"
+          >
+            <Sparkles className="h-4 w-4 mr-1" />
+            AI Replace
           </TabsTrigger>
         </TabsList>
 
@@ -412,6 +491,104 @@ export function BackgroundControls({ project }) {
               </p>
             </div>
           )}
+        </TabsContent>
+
+        {/* NEW: AI Background Replacement Tab */}
+        <TabsContent value="ai-replace" className="space-y-4 mt-6">
+          <div>
+            <h3 className="text-sm font-medium text-white mb-2">
+              AI Background Replacement
+            </h3>
+            <p className="text-xs text-white/70 mb-4">
+              Describe what background you want and AI will generate it
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles className="h-4 w-4 text-purple-400" />
+                <span className="text-sm font-medium text-white">AI Background Generator</span>
+                <span className="px-2 py-1 bg-purple-500 text-white text-xs rounded-full">
+                  NEW
+                </span>
+              </div>
+              
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-white/70 mb-2 block">
+                    Describe your desired background
+                  </label>
+                  <Input
+                    value={aiPrompt}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                    placeholder="e.g., sunset beach, office workspace, mountain landscape..."
+                    className="bg-slate-700 border-white/20 text-white placeholder-white/50"
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter" && aiPrompt.trim() && !isApplyingAI) {
+                        handleAIBackgroundReplacement();
+                      }
+                    }}
+                  />
+                </div>
+                
+                <div className="bg-slate-700/30 rounded-lg p-3">
+                  <p className="text-xs text-white/70">
+                    <strong>Pro tips:</strong><br />
+                    • Be specific: "modern office with plants" vs "office"<br />
+                    • Include lighting: "bright", "sunset", "soft lighting"<br />
+                    • Add atmosphere: "cozy", "professional", "vibrant"
+                  </p>
+                </div>
+
+                <Button
+                  onClick={handleAIBackgroundReplacement}
+                  disabled={!aiPrompt.trim() || isApplyingAI || processingMessage || !getMainImage()}
+                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                  variant="primary"
+                >
+                  {isApplyingAI ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Generating Background...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Generate AI Background
+                    </>
+                  )}
+                </Button>
+
+                {!getMainImage() && (
+                  <p className="text-xs text-amber-400">
+                    Please add an image to the canvas first to replace its background
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Example prompts */}
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-white/90">Quick Examples:</p>
+              <div className="grid grid-cols-1 gap-2">
+                {[
+                  "Sunset beach with palm trees",
+                  "Modern office workspace", 
+                  "Cozy coffee shop interior",
+                  "Mountain landscape at dawn"
+                ].map((example) => (
+                  <button
+                    key={example}
+                    onClick={() => setAiPrompt(example)}
+                    className="text-left p-2 text-xs bg-slate-700/50 hover:bg-slate-700 rounded border border-white/10 hover:border-purple-400/50 transition-colors"
+                  >
+                    <span className="text-white/90">"{example}"</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
 

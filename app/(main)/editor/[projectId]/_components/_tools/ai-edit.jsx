@@ -59,26 +59,24 @@ export function AIEdit({ project }) {
     api.projects.updateProject
   );
 
-  const getMainImage = () =>
-    canvasEditor?.getObjects().find((obj) => obj.type === "image") || null;
+  // Get the main image object from canvas (matches other tools pattern)
+  const getMainImage = () => {
+    if (!canvasEditor) return null;
+    const objects = canvasEditor.getObjects();
+    // Get the last added image (most recent, including AI modifications)
+    const images = objects.filter((obj) => obj.type === "image");
+    return images[images.length - 1] || null;
+  };
 
+  // Build retouch URL with clean transformation (no conflicts)
   const buildRetouchUrl = (imageUrl, presetKey) => {
     const preset = RETOUCH_PRESETS.find((p) => p.key === presetKey);
     if (!imageUrl || !preset) return imageUrl;
 
-    const [baseUrl, existingQuery] = imageUrl.split("?");
-
-    if (existingQuery) {
-      const params = new URLSearchParams(existingQuery);
-      const existingTr = params.get("tr");
-
-      if (existingTr) {
-        // Append retouch to existing transformations
-        return `${baseUrl}?tr=${existingTr},${preset.transform}`;
-      }
-    }
-
-    // No existing transformations, create new
+    // Always use clean base URL to avoid transformation conflicts
+    const [baseUrl] = imageUrl.split("?");
+    
+    // Create fresh transformation URL (no conflicts with existing transforms)
     return `${baseUrl}?tr=${preset.transform}`;
   };
 

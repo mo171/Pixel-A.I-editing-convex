@@ -1,9 +1,9 @@
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { ThemeProvider } from "@/components/theme-provider";
-import { Toaster } from "sonner";
-import { FloatingShapes } from "@/components/floating-shapes";
-import { ClerkProvider } from "@clerk/nextjs";
+import { ThemeProvider } from "@/components/theme-provider";// Will be learning this in next course
+import { Toaster } from "sonner";// always use in layout page for toast msg so agentic tool also uses it
+import { FloatingShapes } from "@/components/floating-shapes"; // made this by myself 
+import { ClerkProvider } from "@clerk/nextjs"; // provider wrapper
 import Header from "@/components/header";
 import { shadesOfPurple } from "@clerk/themes";
 import { ConvexClientProvider } from "./ConvexClientProvider";

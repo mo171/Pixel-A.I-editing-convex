@@ -4,8 +4,10 @@ import { useParallax } from "@/hooks/use-parallax";
 
 export const FloatingShapes = () => {
   const scrollY = useParallax();
-
+ 
+  // This info will come form data folder tsx file for better modular code 
   const shapes = [
+    // This is the shapes that I want to show
     {
       id: 1,
       size: "w-72 h-72",

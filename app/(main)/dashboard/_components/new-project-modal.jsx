@@ -1,4 +1,4 @@
- "use client";
+"use client";
 
 import React, { useState, useCallback } from "react";
 import { X, Upload, Image as ImageIcon, Loader2, Crown } from "lucide-react";
@@ -23,9 +23,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 export function NewProjectModal({ isOpen, onClose }) {
- 
-  const router = useRouter();
-
+  
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [projectTitle, setProjectTitle] = useState("");
@@ -35,14 +33,12 @@ export function NewProjectModal({ isOpen, onClose }) {
   const { mutate: createProject } = useConvexMutation(api.projects.create);
   const { data: projects } = useConvexQuery(api.projects.getUserProjects);
   const { canCreateProject, isFree } = usePlanAccess();
-  
+  const router = useRouter();
 
   // Check if user can create new project
-  const currentProjectCount = projects?.length || 0; 
-  console.log("Current project count:", currentProjectCount );
-  
+  const currentProjectCount = projects?.length || 0;
   const canCreate = canCreateProject(currentProjectCount);
-  console.log("Can create project:", canCreate);
+
   // Handle file drop
   const onDrop = useCallback((acceptedFiles) => {
     const file = acceptedFiles[0];
@@ -79,7 +75,7 @@ export function NewProjectModal({ isOpen, onClose }) {
     }
 
     setIsUploading(true);
-    
+
     try {
       // Upload to ImageKit via our API route
       const formData = new FormData();
@@ -107,7 +103,6 @@ export function NewProjectModal({ isOpen, onClose }) {
         height: uploadData.height || 600,
         canvasState: null,
       });
-     
 
       toast.success("Project created successfully!");
 

@@ -7,13 +7,14 @@
   import { Loader2, Monitor } from "lucide-react";
   import { EditorTopBar } from "./_components/editor-topbar";
   import { EditorSidebar } from "./_components/editor-sidebar";
-  import CanvasEditor from "./_components/canvas";
+  import CanvasEditor from "./_components/canvas"; // loads the canvas editor component
   import { CanvasContext } from "@/context/context";
   import { RingLoader } from "react-spinners";
 
   export default function EditorPage() {
     const params = useParams();
     const projectId = params.projectId;
+    
     const [canvasEditor, setCanvasEditor] = useState(null);
     const [processingMessage, setProcessingMessage] = useState(null);
 

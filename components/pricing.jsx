@@ -86,6 +86,9 @@ const PricingCard = ({
   );
 };
 
+
+
+
 // Pricing Section Component
 const PricingSection = () => {
   const plans = [

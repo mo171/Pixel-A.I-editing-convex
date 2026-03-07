@@ -4,10 +4,10 @@ import React from "react";
 import { LayoutDashboard, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
-import { useStoreUser } from "@/hooks/use-store-user";
+import { useStoreUser } from "@/hooks/use-store-user";  // my custom hook to manage user state and loading
 import { BarLoader } from "react-spinners";
 import { Authenticated, Unauthenticated } from "convex/react";
-import { usePathname } from "next/navigation";
+import { usePathname } from "next/navigation"; // for getting the url 
 import Image from "next/image";
 import { Button } from "./ui/button";
 

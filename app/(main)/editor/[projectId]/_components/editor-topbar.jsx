@@ -343,67 +343,105 @@ export function EditorTopBar({ project }) {
   };
 
   // Reset canvas to original state
-  const handleResetToOriginal = async () => {
-    if (!canvasEditor || !project || !project.originalImageUrl) {
-      toast.error("No original image found to reset to");
-      return;
+ // Reset canvas to original state
+const handleResetToOriginal = async () => {
+  if (!canvasEditor || !project || !project.originalImageUrl) {
+    toast.error("No original image found to reset to");
+    return;
+  }
+
+  // Save state before reset for undo
+  saveToUndoStack();
+
+  try {
+    // ✅ ADDED: Reset canvas dimensions to original project size
+    canvasEditor.setDimensions({
+      width: project.width,
+      height: project.height
+    });
+
+    // ✅ ADDED: Set actual canvas size properties to original
+    canvasEditor.width = project.width;
+    canvasEditor.height = project.height;
+
+    // Clear canvas and reset state
+    canvasEditor.clear();
+    canvasEditor.backgroundColor = "#ffffff";
+    canvasEditor.backgroundImage = null;
+
+    // Load original image
+    const fabricImage = await FabricImage.fromURL(project.originalImageUrl, {
+      crossOrigin: "anonymous",
+    });
+
+    // Calculate proper scaling for original canvas size
+    const imgAspectRatio = fabricImage.width / fabricImage.height;
+    const canvasAspectRatio = project.width / project.height;
+    const scale =
+      imgAspectRatio > canvasAspectRatio
+        ? project.width / fabricImage.width
+        : project.height / fabricImage.height;
+
+    fabricImage.set({
+      left: project.width / 2,
+      top: project.height / 2,
+      originX: "center",
+      originY: "center",
+      scaleX: scale,
+      scaleY: scale,
+      selectable: true,
+      evented: true,
+    });
+
+    fabricImage.filters = [];
+    canvasEditor.add(fabricImage);
+    canvasEditor.centerObject(fabricImage);
+    canvasEditor.setActiveObject(fabricImage);
+
+    // ✅ ADDED: Recalculate and apply viewport scaling for original size
+    const container = canvasEditor.getElement().parentNode;
+    if (container) {
+      const containerWidth = container.clientWidth - 40;
+      const containerHeight = container.clientHeight - 40;
+      const scaleX = containerWidth / project.width;
+      const scaleY = containerHeight / project.height;
+      const viewportScale = Math.min(scaleX, scaleY, 1);
+
+      // Apply viewport scaling
+      canvasEditor.setDimensions(
+        {
+          width: project.width * viewportScale,
+          height: project.height * viewportScale,
+        },
+        { backstoreOnly: false }
+      );
+
+      canvasEditor.setZoom(viewportScale);
     }
 
-    // Save state before reset for undo
-    saveToUndoStack();
+    // ✅ ADDED: Ensure proper canvas offset and rendering
+    canvasEditor.calcOffset();
+    canvasEditor.requestRenderAll();
 
-    try {
-      // Clear canvas and reset state
-      canvasEditor.clear();
-      canvasEditor.backgroundColor = "#ffffff";
-      canvasEditor.backgroundImage = null;
+    // Save the reset state with original dimensions
+    const canvasJSON = canvasEditor.toJSON();
+    await updateProject({
+      projectId: project._id,
+      canvasState: canvasJSON,
+      currentImageUrl: project.originalImageUrl,
+      activeTransformations: undefined,
+      backgroundRemoved: false,
+      // ✅ ADDED: Ensure project dimensions are also reset in database
+      width: project.width,
+      height: project.height,
+    });
 
-      // Load original image
-      const fabricImage = await FabricImage.fromURL(project.originalImageUrl, {
-        crossOrigin: "anonymous",
-      });
-
-      // Calculate proper scaling
-      const imgAspectRatio = fabricImage.width / fabricImage.height;
-      const canvasAspectRatio = project.width / project.height;
-      const scale =
-        imgAspectRatio > canvasAspectRatio
-          ? project.width / fabricImage.width
-          : project.height / fabricImage.height;
-
-      fabricImage.set({
-        left: project.width / 2,
-        top: project.height / 2,
-        originX: "center",
-        originY: "center",
-        scaleX: scale,
-        scaleY: scale,
-        selectable: true,
-        evented: true,
-      });
-
-      fabricImage.filters = [];
-      canvasEditor.add(fabricImage);
-      canvasEditor.centerObject(fabricImage);
-      canvasEditor.setActiveObject(fabricImage);
-      canvasEditor.requestRenderAll();
-
-      // Save the reset state
-      const canvasJSON = canvasEditor.toJSON();
-      await updateProject({
-        projectId: project._id,
-        canvasState: canvasJSON,
-        currentImageUrl: project.originalImageUrl,
-        activeTransformations: undefined,
-        backgroundRemoved: false,
-      });
-
-      toast.success("Canvas reset to original image");
-    } catch (error) {
-      console.error("Error resetting canvas:", error);
-      toast.error("Failed to reset canvas. Please try again.");
-    }
-  };
+    toast.success("Canvas reset to original image and dimensions");
+  } catch (error) {
+    console.error("Error resetting canvas:", error);
+    toast.error("Failed to reset canvas. Please try again.");
+  }
+};
 
   // Check if undo/redo is available
   const canUndo = undoStack.length > 1;

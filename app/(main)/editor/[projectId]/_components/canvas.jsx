@@ -13,7 +13,7 @@ function CanvasEditor({ project }) {
 
   const { mutate: updateProject } = useConvexMutation(
     api.projects.updateProject
-  );
+  );// for updating the state time to time when user makes changes to canvas
 
   const calculateViewportScale = () => {
     if (!containerRef.current || !project) return 1;

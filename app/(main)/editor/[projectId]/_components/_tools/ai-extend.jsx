@@ -31,8 +31,14 @@ export function AIExtenderControls({ project }) {
     api.projects.updateProject
   );
 
-  const getMainImage = () =>
-    canvasEditor?.getObjects().find((obj) => obj.type === "image") || null;
+  // Get the main image object from canvas (matches other tools pattern)
+  const getMainImage = () => {
+    if (!canvasEditor) return null;
+    const objects = canvasEditor.getObjects();
+    // Get the last added image (most recent, including AI modifications)
+    const images = objects.filter((obj) => obj.type === "image");
+    return images[images.length - 1] || null;
+  };
 
   const getImageSrc = (image) =>
     image?.getSrc?.() || image?._element?.src || image?.src;

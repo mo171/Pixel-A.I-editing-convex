@@ -92,7 +92,7 @@ export function EditorSidebar({ project }) {
 function renderToolContent(activeTool, project) {
   switch (activeTool) {
     case "crop":
-      return <CropContent />;
+      return <CropContent project={project} />;
     case "resize":
       return <ResizeControls project={project} />;
     case "adjust":
